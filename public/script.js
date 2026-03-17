@@ -2,7 +2,7 @@ const socket = io("https://exam-chat-app.onrender.com");
 let myRole = '';
 let peerConnection;
 let localStream;
-let currentFacingMode = 'user'; // Front camera by default
+let currentFacingMode = 'user'; 
 let typingTimer;
 const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
@@ -21,37 +21,57 @@ function togglePassword() {
     }
 }
 
+// --- सुधरा हुआ लॉगिन फंक्शन ---
 function login() {
-    alert("Login button pressed!"); // 👈 यह चेक करने के लिए
-    myRole = document.getElementById('role').value;
-    const roomId = document.getElementById('roomId').value;
-    const roomPass = document.getElementById('roomPass').value;
+    console.log("Login sequence started...");
+    
+    try {
+        const idInput = document.getElementById('roomId');
+        const passInput = document.getElementById('roomPass');
+        const roleInput = document.getElementById('role');
+        const loginScreen = document.getElementById('login-screen');
+        const mainScreen = document.getElementById('main-screen');
 
-    if (roomId !== FIXED_ID || roomPass !== FIXED_PASS) {
-        alert("❌ गलत ID या Password!");
-        return;
+        if (!idInput || !passInput || !mainScreen) {
+            alert("Error: HTML Elements (roomId/main-screen) missing!");
+            return;
+        }
+
+        const enteredId = idInput.value.trim();
+        const enteredPass = passInput.value.trim();
+        myRole = roleInput.value;
+
+        if (enteredId === FIXED_ID && enteredPass === FIXED_PASS) {
+            // लॉगिन सफल
+            alert("✅ ID/Pass Correct! Room में प्रवेश कर रहे हैं...");
+
+            // स्क्रीन बदलें
+            loginScreen.style.display = 'none';
+            mainScreen.style.display = 'block';
+
+            // रोल के हिसाब से UI दिखाएँ
+            if (myRole === 'user') {
+                const modal = document.getElementById('screen-share-modal');
+                if(modal) modal.style.display = 'flex';
+            } else {
+                const wrapper = document.getElementById('video-wrapper');
+                if(wrapper) wrapper.style.display = 'flex';
+            }
+
+            // सर्वर को सूचित करें
+            socket.emit('user_joined', myRole);
+            socket.emit('fetch_history');
+            
+        } else {
+            alert("❌ गलत ID या Password!");
+        }
+    } catch (err) {
+        alert("Login Error: " + err.message);
     }
-
-    alert("ID/Pass Correct! Moving to Main Screen..."); // 👈 यह देखने के लिए
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('main-screen').style.display = 'block'; // 'flex' की जगह 'block' करके देखें
-
-    if (myRole === 'user') {
-        document.getElementById('screen-share-modal').style.display = 'flex';
-    } else {
-        document.getElementById('video-wrapper').style.display = 'flex';
-    }
-
-    socket.emit('user_joined', myRole);
-    socket.emit('fetch_history');
-
-
-    // सर्वर को बताएं कि मैं आ गया हूँ (Online Status के लिए)
-    socket.emit('user_joined', myRole);
-    socket.emit('fetch_history');
 }
 
-// 👇 चीटिंग डिटेक्टर (Tab Switch Alert) 👇
+// --- बाकी सारे ओरिजिनल फीचर्स ---
+
 document.addEventListener('visibilitychange', () => {
     if(document.hidden && myRole === 'user') {
         socket.emit('cheating_alert', "🚨 WARNING: User ने एग्जाम स्क्रीन (Tab) से बाहर जाने की कोशिश की है!");
@@ -62,9 +82,9 @@ socket.on('cheating_alert', (msg) => {
     displayMessage({ id: Date.now().toString(), sender: 'system', message: msg, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }, false);
 });
 
-// 👇 ऑनलाइन / ऑफलाइन स्टेटस 👇
 socket.on('status_update', (users) => {
     const statusInd = document.getElementById('status-indicator');
+    if(!statusInd) return;
     const otherRole = myRole === 'admin' ? 'user' : 'admin';
     if (users[otherRole]) {
         statusInd.innerText = "🟢 Online";
@@ -75,7 +95,6 @@ socket.on('status_update', (users) => {
     }
 });
 
-// 👇 टाइपिंग इंडिकेटर 👇
 function handleTyping() {
     socket.emit('typing', myRole);
     clearTimeout(typingTimer);
@@ -83,10 +102,16 @@ function handleTyping() {
 }
 
 socket.on('typing', (role) => {
-    if(role !== myRole) document.getElementById('typing-indicator').style.display = 'block';
+    if(role !== myRole) {
+        const el = document.getElementById('typing-indicator');
+        if(el) el.style.display = 'block';
+    }
 });
 socket.on('stop_typing', (role) => {
-    if(role !== myRole) document.getElementById('typing-indicator').style.display = 'none';
+    if(role !== myRole) {
+        const el = document.getElementById('typing-indicator');
+        if(el) el.style.display = 'none';
+    }
 });
 
 function sendMessage() {
@@ -96,7 +121,6 @@ function sendMessage() {
 
     const msgId = Date.now().toString();
     const timeNow = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
     const data = { id: msgId, sender: myRole, message: msg, time: timeNow };
     
     displayMessage(data, true); 
@@ -122,9 +146,9 @@ socket.on('message_status', (data) => {
 
 function displayMessage(data, isSentByMe) {
     const chatBox = document.getElementById('chat-box');
+    if(!chatBox) return;
     const div = document.createElement('div');
     
-    // अगर सिस्टम का चीटिंग अलर्ट मैसेज है
     if(data.sender === 'system') {
         div.className = 'msg system';
     } else {
@@ -144,32 +168,27 @@ function displayMessage(data, isSentByMe) {
 
 socket.on('load_history', (history) => {
     const chatBox = document.getElementById('chat-box');
-    if(chatBox) chatBox.innerHTML = ''; 
-    history.forEach(data => displayMessage(data, data.sender === myRole));
+    if(chatBox) {
+        chatBox.innerHTML = ''; 
+        history.forEach(data => displayMessage(data, data.sender === myRole));
+    }
 });
 
-// 👇 नया: Screen Casting + Camera + Mic Monitoring 👇
 async function startMonitoring() {
     try {
-        // 1. पहले फ्रंट कैमरा और माइक चालू करें
         localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
-        
-        // 2. फिर फोन की स्क्रीन कास्टिंग चालू करें
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
 
-        // 3. पॉपअप हटाएं और ग्रीन इंडिकेटर दिखाएं
         document.getElementById('screen-share-modal').style.display = 'none';
         document.getElementById('share-indicator').style.display = 'block';
 
         peerConnection = new RTCPeerConnection(servers);
 
-        // 4. एडमिन को कैमरा/माइक और स्क्रीन दोनों का लाइव डेटा भेजें
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
         screenStream.getTracks().forEach(track => peerConnection.addTrack(track, screenStream));
         
-        // अगर यूज़र बीच में स्क्रीन कास्टिंग बंद कर दे (चीटिंग अलर्ट)
         screenStream.getVideoTracks()[0].onended = () => {
-            alert("⚠️ आपने स्क्रीन शेयरिंग बंद कर दी है। एडमिन को अलर्ट भेज दिया गया है!");
+            alert("⚠️ आपने स्क्रीन शेयरिंग बंद कर दी है!");
             socket.emit('cheating_alert', "🚨 WARNING: User ने Screen Casting बंद कर दी है!");
         };
 
@@ -180,11 +199,11 @@ async function startMonitoring() {
         await peerConnection.setLocalDescription(offer);
         socket.emit('signal', { type: 'offer', offer: offer });
     } catch (err) {
-        alert("⚠️ एग्जाम देने के लिए स्क्रीन कास्टिंग, कैमरा और माइक की परमिशन देना 100% ज़रूरी है!");
-        console.error("Media/Screen error:", err);
+        alert("⚠️ कैमरा/स्क्रीन शेयरिंग परमिशन ज़रूरी है!");
+        console.error(err);
     }
 }
-// 👇 एडमिन कंट्रोल्स (Mic Mute & Cam Switch) 👇
+
 function sendAdminCommand(action) {
     socket.emit('admin_command', { action: action });
 }
@@ -198,17 +217,11 @@ socket.on('admin_command', async (data) => {
         else if(data.action === 'switch_cam') {
             currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
             const videoTrack = localStream.getVideoTracks()[0];
-            videoTrack.stop(); // पुराना कैमरा बंद करें
-            
-            // नया कैमरा चालू करें
+            videoTrack.stop();
             const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode } });
             const newVideoTrack = newStream.getVideoTracks()[0];
-            
-            // Stream में नया वीडियो अपडेट करें
             localStream.removeTrack(videoTrack);
             localStream.addTrack(newVideoTrack);
-            
-            // एडमिन को नया वीडियो भेजने के लिए WebRTC अपडेट करें
             const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
             if(sender) sender.replaceTrack(newVideoTrack);
         }
@@ -245,10 +258,10 @@ function leaveChat() {
 function toggleTheme() {
     document.body.classList.toggle('dark-mode');
     const btn = document.getElementById('theme-btn');
-    btn.innerText = document.body.classList.contains('dark-mode') ? "☀️ Light" : "🌙 Dark";
+    if(btn) btn.innerText = document.body.classList.contains('dark-mode') ? "☀️ Light" : "🌙 Dark";
 }
 
-// 👇 ड्रैग एंड ड्रॉप (Mobile Touch + Laptop Mouse Fix) 👇
+// --- Drag & Drop ---
 const dragItem = document.getElementById("video-wrapper");
 const dragHandle = document.getElementById("drag-handle");
 let active = false;
@@ -256,12 +269,9 @@ let currentX, currentY, initialX, initialY;
 let xOffset = 0, yOffset = 0;
 
 if(dragHandle) {
-    // Mouse Events (Laptop)
     dragHandle.addEventListener("mousedown", dragStart, false);
     document.addEventListener("mouseup", dragEnd, false);
     document.addEventListener("mousemove", drag, false);
-    
-    // Touch Events (Mobile)
     dragHandle.addEventListener("touchstart", dragStart, {passive: false});
     document.addEventListener("touchend", dragEnd, false);
     document.addEventListener("touchmove", drag, {passive: false});
@@ -286,7 +296,7 @@ function dragEnd(e) {
 
 function drag(e) {
     if (active) {
-        e.preventDefault(); // मोबाइल पर पेज स्क्रॉल होने से रोकेगा
+        e.preventDefault();
         const loc = getEventLocation(e);
         currentX = loc.clientX - initialX;
         currentY = loc.clientY - initialY;

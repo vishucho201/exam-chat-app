@@ -1,5 +1,5 @@
+var myRole = ''; 
 const socket = io("https://exam-chat-app.onrender.com");
-let myRole = '';
 let peerConnection;
 let localStream;
 let currentFacingMode = 'user'; 

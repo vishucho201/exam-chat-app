@@ -1,0 +1,189 @@
+/* मोबाइल जैसी स्क्रीन का बेस */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #d1d7db; /* WhatsApp वेब जैसा बैकग्राउंड */
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+#app-container {
+    width: 100%;
+    max-width: 400px; /* मोबाइल की चौड़ाई */
+    height: 100vh;
+    max-height: 800px;
+    background: #e5ddd5;
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* लॉगिन स्क्रीन */
+#login-screen {
+    padding: 30px 20px;
+    background: white;
+    height: 100%;
+    text-align: center;
+}
+
+input, select, button {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 10px 0;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+}
+
+button {
+    background-color: #128C7E; /* WhatsApp Green */
+    color: white;
+    font-weight: bold;
+    border: none;
+}
+
+.password-container {
+    position: relative;
+    width: 100%;
+}
+
+#eye-icon {
+    position: absolute;
+    right: 15px;
+    top: 22px;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+/* मेन स्क्रीन और वीडियो */
+#main-screen {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+#video-container {
+    background: black;
+    padding: 10px;
+    text-align: center;
+}
+
+video {
+    width: 100%;
+    height: 180px;
+    background: #222;
+    border-radius: 8px;
+}
+
+/* WhatsApp स्टाइल चैट बॉक्स */
+#chat-box {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); /* WhatsApp चैट बैकग्राउंड */
+}
+
+.msg {
+    max-width: 75%;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 15px;
+    word-wrap: break-word;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+}
+
+.msg.sent {
+    align-self: flex-end;
+    background-color: #dcf8c6;
+    border-top-right-radius: 0;
+}
+
+.msg.received {
+    align-self: flex-start;
+    background-color: #ffffff;
+    border-top-left-radius: 0;
+}
+
+/* मैसेज भेजने का एरिया */
+.input-area {
+    display: flex;
+    padding: 10px;
+    background: #f0f0f0;
+    gap: 10px;
+}
+
+.input-area input { margin: 0; border-radius: 20px; padding: 10px 15px; }
+.input-area button { margin: 0; width: 80px; border-radius: 20px; }
+
+/* 👇 डार्क थीम के कलर्स 👇 */
+body.dark-mode {
+    background-color: #121212;
+}
+.dark-mode #app-container, .dark-mode #login-screen {
+    background-color: #0b141a;
+    color: #e9edef;
+}
+.dark-mode #chat-header, .dark-mode .input-area {
+    background-color: #1f2c34;
+}
+.dark-mode #chat-box {
+    background-color: #0b141a;
+    background-image: none; /* डार्क में पीछे की फोटो हटा देंगे */
+}
+.dark-mode .msg.sent {
+    background-color: #005c4b;
+    color: #e9edef;
+}
+.dark-mode .msg.received {
+    background-color: #202c33;
+    color: #e9edef;
+}
+.dark-mode input {
+    background-color: #2a3942;
+    color: white;
+    border: none;
+}
+/* 👇 टाइम और टिक (Ticks) का डिज़ाइन 👇 */
+.msg-info { display: flex; justify-content: flex-end; align-items: center; font-size: 11px; margin-top: 4px; color: gray; gap: 4px; }
+.dark-mode .msg-info { color: #aaa; }
+.tick { font-size: 13px; font-weight: bold; }
+.tick.blue { color: #53bdeb; } /* ब्लू टिक का रंग */
+
+/* 👇 Popup Modal का डिज़ाइन 👇 */
+#screen-share-modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 9999;
+}
+.modal-content {
+    background: white; padding: 25px; border-radius: 12px;
+    text-align: center; width: 80%; max-width: 300px;
+}
+.dark-mode .modal-content { background: #1f2c34; color: white; }
+
+/* 👇 एडमिन के लिए Floating & Resizable Video का डिज़ाइन 👇 */
+#video-wrapper {
+    position: absolute; top: 70px; right: 20px;
+    width: 250px; min-width: 150px; min-height: 100px; max-width: 90%;
+    background: #000; border: 3px solid #128C7E; border-radius: 8px;
+    z-index: 5000; display: flex; flex-direction: column;
+    overflow: hidden; resize: both; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+#drag-handle {
+    background: #128C7E; color: white; font-size: 12px;
+    text-align: center; padding: 4px; cursor: grab; user-select: none;
+}
+#drag-handle:active { cursor: grabbing; }
+#remoteVideo { width: 100%; height: 100%; object-fit: contain; background: #222; }
+
+/* डार्क मोड में Popup का रंग सही करने के लिए */
+.dark-mode #screen-share-modal div { background: #1f2c34 !important; }
+.dark-mode #screen-share-modal h3, .dark-mode #screen-share-modal p { color: white !important; }

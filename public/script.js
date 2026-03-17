@@ -1,4 +1,4 @@
-const socket = io("https://myweb-dfsa.onrender.com");
+const socket = io("https://exam-chat-app.onrender.com");
 let myRole = '';
 let peerConnection;
 let localStream;
@@ -22,25 +22,29 @@ function togglePassword() {
 }
 
 function login() {
+    alert("Login button pressed!"); // 👈 यह चेक करने के लिए
     myRole = document.getElementById('role').value;
     const roomId = document.getElementById('roomId').value;
     const roomPass = document.getElementById('roomPass').value;
 
     if (roomId !== FIXED_ID || roomPass !== FIXED_PASS) {
-        alert("❌ गलत ID या Password! कृपया सही जानकारी डालें।");
+        alert("❌ गलत ID या Password!");
         return;
     }
 
+    alert("ID/Pass Correct! Moving to Main Screen..."); // 👈 यह देखने के लिए
     document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('main-screen').style.display = 'flex';
+    document.getElementById('main-screen').style.display = 'block'; // 'flex' की जगह 'block' करके देखें
 
     if (myRole === 'user') {
-        const modal = document.getElementById('screen-share-modal');
-        if(modal) modal.style.display = 'flex';
-    } else if (myRole === 'admin') {
-        const videoWrapper = document.getElementById('video-wrapper');
-        if(videoWrapper) videoWrapper.style.display = 'flex';
+        document.getElementById('screen-share-modal').style.display = 'flex';
+    } else {
+        document.getElementById('video-wrapper').style.display = 'flex';
     }
+
+    socket.emit('user_joined', myRole);
+    socket.emit('fetch_history');
+
 
     // सर्वर को बताएं कि मैं आ गया हूँ (Online Status के लिए)
     socket.emit('user_joined', myRole);

@@ -1,13 +1,10 @@
 var myRole = ''; 
-const socket = io("https://exam-chat-app.onrender.com");
-let peerConnection;
-let localStream;
+var socket = io("https://exam-chat-app.onrender.com");
 let currentFacingMode = 'user'; 
 let typingTimer;
-const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-const FIXED_ID = "yaru201yaru";
-const FIXED_PASS = "1404243024vm";
+// 🟢 LiveKit Room Variable
+let livekitRoom; 
 
 function togglePassword() {
     const passInput = document.getElementById('roomPass');
@@ -21,7 +18,7 @@ function togglePassword() {
     }
 }
 
-// --- सुधरा हुआ लॉगिन फंक्शन ---
+// --- Bulletproof Login Function ---
 function login() {
     console.log("Login sequence started...");
     
@@ -33,7 +30,7 @@ function login() {
         const mainScreen = document.getElementById('main-screen');
 
         if (!idInput || !passInput || !mainScreen) {
-            alert("Error: HTML Elements (roomId/main-screen) missing!");
+            alert("Error: HTML Elements missing!");
             return;
         }
 
@@ -41,15 +38,12 @@ function login() {
         const enteredPass = passInput.value.trim();
         myRole = roleInput.value;
 
-        if (enteredId === FIXED_ID && enteredPass === FIXED_PASS) {
-            // लॉगिन सफल
+        if (enteredId === "yaru201yaru" && enteredPass === "1404243024vm") {
             alert("✅ ID/Pass Correct! Room में प्रवेश कर रहे हैं...");
 
-            // स्क्रीन बदलें
             loginScreen.style.display = 'none';
             mainScreen.style.display = 'block';
 
-            // रोल के हिसाब से UI दिखाएँ
             if (myRole === 'user') {
                 const modal = document.getElementById('screen-share-modal');
                 if(modal) modal.style.display = 'flex';
@@ -58,7 +52,6 @@ function login() {
                 if(wrapper) wrapper.style.display = 'flex';
             }
 
-            // सर्वर को सूचित करें
             socket.emit('user_joined', myRole);
             socket.emit('fetch_history');
             
@@ -70,8 +63,7 @@ function login() {
     }
 }
 
-// --- बाकी सारे ओरिजिनल फीचर्स ---
-
+// --- चैट और चीटिंग फीचर्स ---
 document.addEventListener('visibilitychange', () => {
     if(document.hidden && myRole === 'user') {
         socket.emit('cheating_alert', "🚨 WARNING: User ने एग्जाम स्क्रीन (Tab) से बाहर जाने की कोशिश की है!");
@@ -174,80 +166,76 @@ socket.on('load_history', (history) => {
     }
 });
 
+// 🟢 LIVEKIT CAMERA & SCREEN SHARE LOGIC
 async function startMonitoring() {
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-
-        document.getElementById('screen-share-modal').style.display = 'none';
-        document.getElementById('share-indicator').style.display = 'block';
-
-        peerConnection = new RTCPeerConnection(servers);
-
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-        screenStream.getTracks().forEach(track => peerConnection.addTrack(track, screenStream));
-        
-        screenStream.getVideoTracks()[0].onended = () => {
-            alert("⚠️ आपने स्क्रीन शेयरिंग बंद कर दी है!");
-            socket.emit('cheating_alert', "🚨 WARNING: User ने Screen Casting बंद कर दी है!");
-        };
-
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate) socket.emit('signal', { type: 'candidate', candidate: event.candidate });
-        };
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        socket.emit('signal', { type: 'offer', offer: offer });
-    } catch (err) {
-        alert("⚠️ कैमरा/स्क्रीन शेयरिंग परमिशन ज़रूरी है!");
-        console.error(err);
-    }
+    // 1. सर्वर से LiveKit का पास (Token) मांगें
+    socket.emit('get_livekit_token', myRole);
 }
+
+socket.on('livekit_token', async (data) => {
+    try {
+        const modal = document.getElementById('screen-share-modal');
+        if (modal) modal.style.display = 'none';
+
+        // 2. नया LiveKit Room बनाएँ
+        livekitRoom = new LivekitClient.Room({
+            adaptiveStream: true,
+            dynacast: true,
+        });
+
+        // 3. जब वीडियो/ऑडियो सर्वर से आये (एडमिन के लिए)
+        livekitRoom.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+            if (track.kind === 'video') {
+                const element = track.attach();
+                element.style.width = "100%";
+                element.style.height = "100%";
+                element.style.objectFit = "cover";
+                
+                const remoteVideoContainer = document.getElementById('remoteVideo').parentElement;
+                document.getElementById('remoteVideo').style.display = 'none'; 
+                remoteVideoContainer.appendChild(element);
+            } else if (track.kind === 'audio') {
+                track.attach(); 
+            }
+        });
+
+        // 4. रूम से कनेक्ट करें
+        await livekitRoom.connect(data.url, data.token);
+        console.log('✅ LiveKit Room Connected!');
+
+        // 5. अगर यूज़र है, तो उसका कैमरा, माइक और स्क्रीन ऑन करें
+        if (myRole === 'user') {
+            await livekitRoom.localParticipant.enableCameraAndMicrophone();
+            
+            try {
+                await livekitRoom.localParticipant.setScreenShareEnabled(true);
+            } catch (screenErr) {
+                console.warn("Screen share blocked:", screenErr);
+                socket.emit('cheating_alert', "🚨 Alert: User की Screen Sharing ब्लॉक है, लेकिन Camera & Mic LIVE हैं!");
+            }
+        }
+    } catch (error) {
+        console.error("LiveKit connection error:", error);
+        alert("⚠️ Video server से कनेक्ट नहीं हो पाया!");
+    }
+});
 
 function sendAdminCommand(action) {
     socket.emit('admin_command', { action: action });
 }
 
+// 🟢 Admin Commands for LiveKit
 socket.on('admin_command', async (data) => {
-    if(myRole === 'user' && localStream) {
+    if(myRole === 'user' && livekitRoom) {
         if(data.action === 'toggle_mic') {
-            const audioTrack = localStream.getAudioTracks()[0];
-            if(audioTrack) audioTrack.enabled = !audioTrack.enabled;
+            const isEnabled = livekitRoom.localParticipant.isMicrophoneEnabled;
+            await livekitRoom.localParticipant.setMicrophoneEnabled(!isEnabled);
         } 
         else if(data.action === 'switch_cam') {
             currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-            const videoTrack = localStream.getVideoTracks()[0];
-            videoTrack.stop();
-            const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode } });
-            const newVideoTrack = newStream.getVideoTracks()[0];
-            localStream.removeTrack(videoTrack);
-            localStream.addTrack(newVideoTrack);
-            const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-            if(sender) sender.replaceTrack(newVideoTrack);
+            await livekitRoom.localParticipant.setCameraEnabled(false);
+            await livekitRoom.localParticipant.setCameraEnabled(true, { facingMode: currentFacingMode });
         }
-    }
-});
-
-socket.on('signal', async (data) => {
-    if (!peerConnection) {
-        peerConnection = new RTCPeerConnection(servers);
-        peerConnection.ontrack = (event) => {
-            const remoteVideo = document.getElementById('remoteVideo');
-            if(remoteVideo) remoteVideo.srcObject = event.streams[0];
-        };
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate) socket.emit('signal', { type: 'candidate', candidate: event.candidate });
-        };
-    }
-    if (data.type === 'offer' && myRole === 'admin') {
-        await peerConnection.setRemoteDescription(data.offer);
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        socket.emit('signal', { type: 'answer', answer: answer });
-    } else if (data.type === 'answer' && myRole === 'user') {
-        await peerConnection.setRemoteDescription(data.answer);
-    } else if (data.type === 'candidate') {
-        await peerConnection.addIceCandidate(data.candidate);
     }
 });
 

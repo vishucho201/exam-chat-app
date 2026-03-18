@@ -4,12 +4,18 @@ const http = require('http');
 const { Server } = require('socket.io');
 const fs = require('fs');
 const path = require('path');
+const { AccessToken } = require('livekit-server-sdk'); // 👈 LiveKit SDK जोड़ा गया
+
+// 👇 अपनी LiveKit की तीनों चीज़ें यहाँ डालें 👇
+const LIVEKIT_API_KEY = "APIJNBuBVYqWDPt";
+const LIVEKIT_API_SECRET = "M2romB64VbYx28qdB4eCCAfr28cWSzeOJUvrmAf61i0A";
+const LIVEKIT_URL = "wss://examapp-a17ep6sh.livekit.cloud"; 
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "*", // यह किसी भी ऐप को जुड़ने की इजाज़त देता है
+        origin: "*", 
         methods: ["GET", "POST"]
     }
 });
@@ -17,7 +23,6 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const HISTORY_FILE = path.join(__dirname, 'chat_history.json');
 
-// कौन ऑनलाइन है यह ट्रैक करने के लिए
 const activeUsers = { admin: false, user: false };
 const socketRoleMap = {};
 
@@ -40,11 +45,25 @@ app.get('/creator-secret-panel', (req, res) => {
 io.on('connection', (socket) => {
     console.log('एक नया यूज़र कनेक्ट हुआ:', socket.id);
 
-    // Online Status Tracker
+    // 🟢 LiveKit Token Generator (नया कोड)
+    socket.on('get_livekit_token', (role) => {
+        const roomName = 'secure-exam-room';
+        const participantName = role + '_' + Math.floor(Math.random() * 10000);
+
+        const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
+            identity: participantName,
+        });
+        
+        // रूम में घुसने और वीडियो भेजने/देखने की परमिशन
+        at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true });
+        
+        socket.emit('livekit_token', { token: at.toJwt(), url: LIVEKIT_URL });
+    });
+
     socket.on('user_joined', (role) => {
         socketRoleMap[socket.id] = role;
         activeUsers[role] = true;
-        io.emit('status_update', activeUsers); // सबको बताएं कौन ऑनलाइन है
+        io.emit('status_update', activeUsers); 
     });
 
     socket.on('send_message', (data) => {
@@ -62,16 +81,11 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Typing Indicators
     socket.on('typing', (role) => socket.broadcast.emit('typing', role));
     socket.on('stop_typing', (role) => socket.broadcast.emit('stop_typing', role));
-
-    // Admin Controls & Cheating Alerts
     socket.on('admin_command', (data) => socket.broadcast.emit('admin_command', data));
     socket.on('cheating_alert', (msg) => socket.broadcast.emit('cheating_alert', msg));
-
     socket.on('message_status', (data) => socket.broadcast.emit('message_status', data));
-    socket.on('signal', (data) => socket.broadcast.emit('signal', data));
 
     socket.on('fetch_history', () => {
         try {
@@ -90,7 +104,7 @@ io.on('connection', (socket) => {
         const role = socketRoleMap[socket.id];
         if(role) {
             activeUsers[role] = false;
-            io.emit('status_update', activeUsers); // सबको बताएं वो ऑफलाइन हो गया
+            io.emit('status_update', activeUsers); 
             delete socketRoleMap[socket.id];
         }
         console.log('यूज़र डिसकनेक्ट हो गया:', socket.id);

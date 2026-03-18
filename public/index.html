@@ -3,78 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Proctoring Exam Chat</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Secure Chat App</title>
     <style>
-        /* चीटिंग अलर्ट मैसेज के लिए स्पेशल लाल डिज़ाइन */
-        .msg.system { background: #ffcccc; color: #cc0000; font-weight: bold; border-left: 5px solid #cc0000; text-align: center; }
-        .dark-mode .msg.system { background: #4a0000; color: #ff9999; }
+        /* Basic WhatsApp Style UI */
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #e5ddd5; }
+        #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #fff; }
+        .login-box { padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 80%; max-width: 300px; text-align: center; }
+        .login-box input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        .login-box button { width: 100%; padding: 10px; background: #25D366; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        
+        #main-screen { display: none; height: 100vh; display: flex; flex-direction: column; }
+        .header { background: #075E54; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .header button { background: none; border: none; color: white; font-size: 20px; cursor: pointer; }
+        
+        #chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { max-width: 75%; padding: 10px; border-radius: 10px; position: relative; word-wrap: break-word; }
+        .msg.sent { background: #dcf8c6; align-self: flex-end; border-bottom-right-radius: 0; }
+        .msg.received { background: #fff; align-self: flex-start; border-bottom-left-radius: 0; }
+        
+        /* WhatsApp like Bottom Input Area */
+        .input-area { display: flex; padding: 10px; background: #f0f0f0; align-items: center; gap: 10px; }
+        .input-area input { flex: 1; padding: 12px; border-radius: 20px; border: none; outline: none; }
+        .icon-btn { background: #075E54; color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .mic-recording { background: red !important; animation: pulse 1s infinite; }
+        
+        #video-container { display: none; background: #000; position: relative; height: 30vh; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        #localVideo { position: absolute; bottom: 10px; right: 10px; width: 80px; height: 120px; border-radius: 10px; border: 2px solid white; }
     </style>
 </head>
 <body>
-    <div id="app-container">
-        <div id="login-screen">
-            <h2>Secure Exam Login</h2>
-            <input type="text" id="roomId" placeholder="Enter ID">
-            <div class="password-container">
-                <input type="password" id="roomPass" placeholder="Enter Password">
-                <span id="eye-icon" onclick="togglePassword()">👁️</span>
-            </div>
-            <select id="role">
-                <option value="admin">Join as Admin</option>
-                <option value="user">Join as User (Exam Taker)</option>
-            </select>
-            <button onclick="login()">Enter Exam Room</button>
-        </div>
 
-        <div id="main-screen" style="display: none;">
-            
-            <div id="chat-header" style="background: #075e54; color: white; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; font-size: 16px; display: flex; align-items: center;">
-                    💬 Exam Room 
-                    <span id="status-indicator" style="font-size: 12px; margin-left: 10px; color: #ffbaba; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 10px;">🔴 Offline</span>
-                </h3>
-                <div>
-                    <button id="theme-btn" onclick="toggleTheme()" style="width: auto; padding: 5px 10px; background: rgba(0,0,0,0.2); font-size: 12px; border-radius: 5px; color:white; border:none;">🌙 Dark</button>
-                    <button id="leave-btn" onclick="leaveChat()" style="width: auto; background: #e74c3c; margin-left: 5px; padding: 5px 10px; font-size: 12px; border-radius: 5px; color:white; border:none;">🚪 Leave</button>
-                </div>
-            </div>
-
-            <div id="share-indicator" style="display:none; background: #dcf8c6; color: #075e54; font-size: 13px; font-weight: bold; padding: 8px; text-align:center;">
-                🟢 Camera & Mic Active (Admin is monitoring)
-            </div>
-
-            <div id="video-wrapper" style="display: none;">
-                <div id="drag-handle">↕️ Drag Video Here</div>
-                <video id="remoteVideo" autoplay playsinline></video>
-                <div id="admin-controls" style="display: flex; justify-content: space-around; background: #222; padding: 5px; border-top: 1px solid #444;">
-                    <button id="mic-toggle-btn" onclick="sendAdminCommand('toggle_mic')" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px; cursor: pointer;">🔇 Mic</button>
-                    <button id="cam-switch-btn" onclick="sendAdminCommand('switch_cam')" style="background: #128C7E; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px; cursor: pointer;">🔄 Switch Cam</button>
-                </div>
-            </div>
-            
-            <div id="chat-box"></div>
-            
-            <div id="typing-indicator" style="display: none; padding: 5px 15px; font-size: 12px; color: #128C7E; font-style: italic; background: #e5ddd5;">
-                User is typing...
-            </div>
-            
-            <div class="input-area">
-                <input type="text" id="messageInput" placeholder="Message..." oninput="handleTyping()">
-                <button onclick="sendMessage()" style="color: white;">Send</button>
-            </div>
+    <div id="login-screen">
+        <div class="login-box">
+            <h2>Welcome</h2>
+            <input type="text" id="userId" placeholder="Enter ID">
+            <input type="password" id="userPass" placeholder="Enter Password">
+            <button onclick="login()">Login</button>
         </div>
     </div>
 
-    <div id="screen-share-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center;">
-        <div style="background: white; padding: 25px; border-radius: 12px; text-align: center; width: 80%; max-width: 300px;">
-            <h3 style="color: black; margin-top: 0;">📸 Exam Monitoring</h3>
-            <p style="color: black;">एग्जाम शुरू करने के लिए अपना कैमरा और माइक चालू करें।</p>
-            <button onclick="startMonitoring()" style="background: #128C7E; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">Start Camera & Mic</button>
+    <div id="main-screen" style="display: none;">
+        <div class="header">
+            <h3 id="chat-title" style="margin: 0;">Chat</h3>
+            <div>
+                <button onclick="startVideoCall()">📹</button>
+                <button onclick="endVideoCall()" style="color: red; display: none;" id="endCallBtn">❌</button>
+            </div>
+        </div>
+
+        <div id="video-container">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay playsinline muted></video>
+        </div>
+
+        <div id="chat-box"></div>
+
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="Type a message..." onkeypress="handleTyping()">
+            <button class="icon-btn" id="micBtn" onclick="toggleMic()">🎤</button>
+            <button class="icon-btn" onclick="sendTextMessage()">➤</button>
         </div>
     </div>
-<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
